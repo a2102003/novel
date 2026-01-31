@@ -3,7 +3,7 @@ import { Book, Chapter, ReaderSettings, ThemeMode } from './types';
 import { parseNovelContent } from './utils/parser';
 import Library from './components/Library';
 import Reader from './components/Reader';
-import { Settings, Moon, Sun, Coffee, Type, Minus, Plus } from 'lucide-react';
+import { Settings, Moon, Sun, Coffee, Type, Minus, Plus, UploadCloud } from 'lucide-react';
 
 function App() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -12,6 +12,7 @@ function App() {
   
   const [isLibraryOpen, setLibraryOpen] = useState(true);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [settings, setSettings] = useState<ReaderSettings>({
     theme: ThemeMode.LIGHT,
@@ -20,12 +21,9 @@ function App() {
     width: 800
   });
 
-  // Handle Book Upload
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-
+  // Reusable function to process file list
+  const processFiles = async (files: File[]) => {
     const newBooks: Book[] = [];
-    const files = Array.from(e.target.files) as File[];
 
     // Sort files by name to ensure order if they are numbered (001.txt, 002.txt)
     files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
@@ -66,6 +64,38 @@ function App() {
     }
   };
 
+  // Handle Input Change Upload
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files) as File[];
+    await processFiles(files);
+    // Reset input value to allow selecting same file again if needed
+    e.target.value = '';
+  };
+
+  // Handle Drag & Drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    // Only set to false if we are leaving the window
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      await processFiles(files);
+    }
+  };
+
   const currentBook = books.find(b => b.id === currentBookId);
   const currentChapter = currentBook?.chapters[currentChapterIndex];
 
@@ -103,7 +133,7 @@ function App() {
     document.body.style.backgroundColor = bodyColor;
   }, [settings.theme]);
 
-  // Settings Panel Component (Inline for simplicity as it shares state tightly)
+  // Settings Panel Component
   const SettingsPanel = () => {
     if (!isSettingsOpen) return null;
     return (
@@ -165,10 +195,23 @@ function App() {
   };
 
   return (
-    <div className={`flex h-screen w-full relative overflow-hidden transition-colors duration-300 ${
-      settings.theme === ThemeMode.DARK ? 'bg-[#1a1a1a]' : settings.theme === ThemeMode.SEPIA ? 'bg-[#f4ecd8]' : 'bg-white'
-    }`}>
+    <div 
+      className={`flex h-screen w-full relative overflow-hidden transition-colors duration-300 ${
+        settings.theme === ThemeMode.DARK ? 'bg-[#1a1a1a]' : settings.theme === ThemeMode.SEPIA ? 'bg-[#f4ecd8]' : 'bg-white'
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       
+      {/* Drag Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-blue-500/20 backdrop-blur-sm border-4 border-blue-500 border-dashed m-4 rounded-xl flex flex-col items-center justify-center text-blue-600 pointer-events-none">
+          <UploadCloud size={64} className="mb-4 animate-bounce" />
+          <h2 className="text-2xl font-bold">释放以导入小说</h2>
+        </div>
+      )}
+
       {/* Sidebar Library */}
       <Library 
         books={books}
