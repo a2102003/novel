@@ -28,7 +28,7 @@ function App() {
           
           const remotePromises = manifest.map(async (item: { title: string, file: string }) => {
              try {
-               const textRes = await fetch(`/novels/${item.file}`);
+               const textRes = await fetch(`/novels/${encodeURIComponent(item.file)}`);
                if (!textRes.ok) throw new Error("File not found");
                const text = await textRes.text();
                const chapters = parseNovelContent(text);

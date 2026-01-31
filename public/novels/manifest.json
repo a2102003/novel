@@ -2,5 +2,9 @@
   {
     "title": "ZenReader 使用指南",
     "file": "welcome.txt"
+  },
+  {
+    "title": "全书合并",
+    "file": "combined.txt"
   }
 ]
