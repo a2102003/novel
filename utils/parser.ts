@@ -2,13 +2,13 @@ import { Chapter } from '../types';
 
 export const parseNovelContent = (fullText: string): Chapter[] => {
   // Enhanced regex to support:
-  // 1. Chinese chapters: "第1章", "第一回", etc.
+  // 1. Chinese chapters: "第1章", "第一回", etc. (Supports optional ** for bold)
   // 2. English chapters: "Chapter 1", "chapter 10", etc.
   // 3. Markdown headers: "# Title", "## Title"
   // 4. Simple numbered chapters often found in txts: "1. ", "2. ", "10、" (requires start of line)
   // Group 2 is the full matched title line.
   
-  const chapterRegex = /(^|\n)\s*((第[0-9零一二三四五六七八九十百千]+[章回节卷].*)|(Chapter\s+\d+.*)|(#{1,2}\s+.*)|(^|\n)(\d+[\.、]\s+.*))/gi;
+  const chapterRegex = /(^|\n)\s*(\**\s*(第[0-9零一二三四五六七八九十百千]+[章回节卷].*)|(\**\s*Chapter\s+\d+.*)|(#{1,2}\s+.*)|(^|\n)(\d+[\.、]\s+.*))/gi;
   
   const matches = [...fullText.matchAll(chapterRegex)];
   
@@ -41,6 +41,8 @@ export const parseNovelContent = (fullText: string): Chapter[] => {
     
     // Clean Markdown headers (remove leading #)
     title = title.replace(/^#+\s*/, '');
+    // Clean bold markers (remove leading/trailing **)
+    title = title.replace(/^\**\s*/, '').replace(/\**$/, '');
     
     // Clean leading newlines if match included them
     title = title.trim();
