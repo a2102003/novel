@@ -1,6 +1,6 @@
 import React from 'react';
 import { Book, ThemeMode } from '../types';
-import { BookOpen, Trash2, Library as LibraryIcon, Menu, FolderUp, FileUp } from 'lucide-react';
+import { BookOpen, Trash2, Library as LibraryIcon, Menu, FolderUp, FileUp, Cloud } from 'lucide-react';
 
 interface LibraryProps {
   books: Book[];
@@ -76,15 +76,18 @@ const Library: React.FC<LibraryProps> = ({
                   onClick={() => onSelectBook(book.id)}
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <BookOpen size={18} className="shrink-0" />
+                    {book.isStatic ? <Cloud size={18} className="shrink-0 opacity-70" /> : <BookOpen size={18} className="shrink-0" />}
                     <span className="truncate text-sm font-medium">{book.title}</span>
                   </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDeleteBook(book.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  
+                  {!book.isStatic && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onDeleteBook(book.id); }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -117,12 +120,12 @@ const Library: React.FC<LibraryProps> = ({
         )}
       </div>
 
-      {/* Upload Area */}
+      {/* Upload Area - Optional but kept for temp reading */}
       <div className="p-4 border-t border-opacity-20 bg-black/5 grid grid-cols-2 gap-2">
         <label className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border-2 border-dashed cursor-pointer hover:bg-black/5 transition-colors ${theme === ThemeMode.DARK ? 'border-neutral-700' : 'border-gray-300'}`}>
           <FileUp size={20} />
-          <span className="text-xs font-medium">导入文件</span>
-          <span className="text-[10px] opacity-60">TXT / MD</span>
+          <span className="text-xs font-medium">临时阅读</span>
+          <span className="text-[10px] opacity-60">文件</span>
           <input 
             type="file" 
             multiple 
@@ -134,8 +137,8 @@ const Library: React.FC<LibraryProps> = ({
         
         <label className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border-2 border-dashed cursor-pointer hover:bg-black/5 transition-colors ${theme === ThemeMode.DARK ? 'border-neutral-700' : 'border-gray-300'}`}>
           <FolderUp size={20} />
-          <span className="text-xs font-medium">导入目录</span>
-          <span className="text-[10px] opacity-60">批量导入</span>
+          <span className="text-xs font-medium">临时阅读</span>
+          <span className="text-[10px] opacity-60">文件夹</span>
           <input 
             type="file" 
             webkitdirectory="" 

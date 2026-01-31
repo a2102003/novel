@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Book, ReaderSettings, ThemeMode } from './types';
 import { parseNovelContent } from './utils/parser';
+import { db } from './utils/db'; // Import the database utility
 import Library from './components/Library';
 import Reader from './components/Reader';
 import { Moon, Sun, Coffee, Type, Minus, Plus, UploadCloud } from 'lucide-react';
@@ -14,6 +15,65 @@ function App() {
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Load books from Server AND DB on startup
+  useEffect(() => {
+    const initBooks = async () => {
+      let allBooks: Book[] = [];
+
+      // 1. Fetch Remote Books (Static files from /public/novels)
+      try {
+        const res = await fetch('/novels/manifest.json');
+        if (res.ok) {
+          const manifest = await res.json();
+          
+          const remotePromises = manifest.map(async (item: { title: string, file: string }) => {
+             try {
+               const textRes = await fetch(`/novels/${item.file}`);
+               if (!textRes.ok) throw new Error("File not found");
+               const text = await textRes.text();
+               const chapters = parseNovelContent(text);
+               return {
+                 id: `static-${item.file}`, // Unique ID for static files
+                 title: item.title,
+                 fileName: item.file,
+                 content: text,
+                 chapters: chapters,
+                 lastReadChapterIndex: 0,
+                 progress: 0,
+                 isStatic: true
+               } as Book;
+             } catch (e) {
+               console.error(`Failed to load remote book: ${item.title}`, e);
+               return null;
+             }
+          });
+          
+          const remoteResults = await Promise.all(remotePromises);
+          const validRemoteBooks = remoteResults.filter(b => b !== null) as Book[];
+          allBooks = [...allBooks, ...validRemoteBooks];
+        }
+      } catch (e) {
+        console.warn("Could not load remote manifest", e);
+      }
+
+      // 2. Fetch Local Books (User uploaded via drag & drop)
+      try {
+        const localBooks = await db.getAllBooks();
+        // Merge lists (Remote first, then Local)
+        allBooks = [...allBooks, ...localBooks];
+      } catch (error) {
+        console.error("Failed to load local books:", error);
+      }
+
+      setBooks(allBooks);
+      
+      // If no book selected, and we have books, maybe select one? 
+      // Or just leave it null to show welcome screen.
+    };
+
+    initBooks();
+  }, []);
+
   const [settings, setSettings] = useState<ReaderSettings>({
     theme: ThemeMode.LIGHT,
     fontSize: 18,
@@ -25,7 +85,7 @@ function App() {
   const processFiles = async (files: File[]) => {
     const newBooks: Book[] = [];
 
-    // Sort files by name to ensure order if they are numbered (001.txt, 002.txt)
+    // Sort files by name
     files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
     for (const file of files) {
@@ -45,8 +105,12 @@ function App() {
             content: text,
             chapters: chapters,
             lastReadChapterIndex: 0,
-            progress: 0
+            progress: 0,
+            isStatic: false
           };
+          
+          // Save to DB immediately
+          await db.saveBook(book);
           newBooks.push(book);
         } catch (err) {
           console.error(`Failed to read file ${file.name}`, err);
@@ -56,7 +120,7 @@ function App() {
 
     if (newBooks.length > 0) {
       setBooks(prev => [...prev, ...newBooks]);
-      // If no book selected, select the first one
+      // If no book currently selected, select the first new one
       if (!currentBookId) {
         setCurrentBookId(newBooks[0].id);
         setCurrentChapterIndex(0);
@@ -69,7 +133,6 @@ function App() {
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files) as File[];
     await processFiles(files);
-    // Reset input value to allow selecting same file again if needed
     e.target.value = '';
   };
 
@@ -81,7 +144,6 @@ function App() {
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    // Only set to false if we are leaving the window
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragging(false);
   };
@@ -89,7 +151,6 @@ function App() {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const files = Array.from(e.dataTransfer.files);
       await processFiles(files);
@@ -99,34 +160,80 @@ function App() {
   const currentBook = books.find(b => b.id === currentBookId);
   const currentChapter = currentBook?.chapters[currentChapterIndex];
 
+  // Helper to update progress state
+  const updateChapter = (newIndex: number) => {
+    setCurrentChapterIndex(newIndex);
+    
+    if (currentBookId) {
+      // Only save progress to DB if it's a local book? 
+      // Actually we can try to save progress for server books too in DB if we key by ID.
+      // But for simplicity in this version, let's just update local state for all,
+      // and only persist to DB if the book exists in DB.
+      
+      // Update UI state
+      setBooks(prevBooks => prevBooks.map(b => {
+        if (b.id === currentBookId) {
+          return { ...b, lastReadChapterIndex: newIndex };
+        }
+        return b;
+      }));
+
+      // Try to persist progress. 
+      // For static books, we might need a separate store "reading_progress" but for now
+      // let's just try to update. db.updateProgress checks if record exists.
+      // If it's a static book, it won't be in 'books' store unless we save it there.
+      // To keep it simple: Progress for static books is currently session-only in this implementation
+      // unless we clone them to DB. Let's stick to session-only for static books to avoid duplication logic complexity.
+      const targetBook = books.find(b => b.id === currentBookId);
+      if (targetBook && !targetBook.isStatic) {
+         db.updateProgress(currentBookId, newIndex);
+      }
+    }
+  };
+
   // Navigation Handlers
   const handleNextChapter = () => {
     if (currentBook && currentChapterIndex < currentBook.chapters.length - 1) {
-      setCurrentChapterIndex(prev => prev + 1);
+      updateChapter(currentChapterIndex + 1);
     }
   };
 
   const handlePrevChapter = () => {
     if (currentChapterIndex > 0) {
-      setCurrentChapterIndex(prev => prev - 1);
+      updateChapter(currentChapterIndex - 1);
     }
   };
 
   const toggleBook = (id: string) => {
-      // If clicking the current book in library, maybe just keep it.
-      // If clicking a different one, switch and reset chapter to saved progress (todo) or 0
       if (id !== currentBookId) {
-        setCurrentBookId(id);
-        setCurrentChapterIndex(0);
-      } else {
-        // If clicking back button (empty id passed from Library component logic)
-        if(id === '') setCurrentBookId(null);
+        const targetBook = books.find(b => b.id === id);
+        if (targetBook) {
+          setCurrentBookId(id);
+          setCurrentChapterIndex(targetBook.lastReadChapterIndex || 0);
+          if (window.innerWidth < 768) {
+            setLibraryOpen(false);
+          }
+        } else if (id === '') {
+          setCurrentBookId(null);
+        }
       }
+  };
+
+  const handleDeleteBook = async (id: string) => {
+    // Only allow deleting local books
+    const book = books.find(b => b.id === id);
+    if (book && book.isStatic) {
+      alert("这是网站内置书籍，无法删除。");
+      return;
+    }
+
+    await db.deleteBook(id);
+    setBooks(prev => prev.filter(b => b.id !== id));
+    if (currentBookId === id) setCurrentBookId(null);
   };
 
   // Theme application
   useEffect(() => {
-    // Apply background color to body to prevent white flashes
     const bodyColor = 
       settings.theme === ThemeMode.DARK ? '#1a1a1a' : 
       settings.theme === ThemeMode.SEPIA ? '#f4ecd8' : '#ffffff';
@@ -220,13 +327,10 @@ function App() {
         isOpen={isLibraryOpen}
         theme={settings.theme}
         onSelectBook={toggleBook}
-        onSelectChapter={setCurrentChapterIndex}
+        onSelectChapter={updateChapter}
         onUpload={handleUpload}
         onToggle={() => setLibraryOpen(!isLibraryOpen)}
-        onDeleteBook={(id) => {
-          setBooks(prev => prev.filter(b => b.id !== id));
-          if (currentBookId === id) setCurrentBookId(null);
-        }}
+        onDeleteBook={handleDeleteBook}
       />
 
       {/* Main Reader Area */}

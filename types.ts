@@ -12,6 +12,7 @@ export interface Book {
   fileName: string;
   lastReadChapterIndex: number;
   progress: number; // 0-100
+  isStatic?: boolean; // New flag: true if loaded from server public folder
 }
 
 export enum ThemeMode {
