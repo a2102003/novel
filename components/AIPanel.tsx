@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ThemeMode, Chapter, AIChatMessage } from '../types';
 import { summarizeChapter, chatWithBook } from '../services/geminiService';
-import { Sparkles, MessageSquare, X, Send, Loader2, BookText } from 'lucide-react';
+import { Sparkles, X, Send, Loader2, BookText } from 'lucide-react';
 
 interface AIPanelProps {
   isOpen: boolean;

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Book, Chapter, ReaderSettings, ThemeMode } from './types';
+import React, { useState, useEffect } from 'react';
+import { Book, ReaderSettings, ThemeMode } from './types';
 import { parseNovelContent } from './utils/parser';
 import Library from './components/Library';
 import Reader from './components/Reader';
-import { Settings, Moon, Sun, Coffee, Type, Minus, Plus, UploadCloud } from 'lucide-react';
+import { Moon, Sun, Coffee, Type, Minus, Plus, UploadCloud } from 'lucide-react';
 
 function App() {
   const [books, setBooks] = useState<Book[]>([]);

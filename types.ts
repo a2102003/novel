@@ -1,5 +1,3 @@
-import { HTMLAttributes } from 'react';
-
 export interface Chapter {
   title: string;
   content: string;
@@ -37,7 +35,7 @@ export interface AIChatMessage {
 
 // Extend HTMLInputElement to support webkitdirectory
 declare module 'react' {
-  interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
+  interface InputHTMLAttributes<T> {
     webkitdirectory?: string;
     directory?: string;
   }

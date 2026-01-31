@@ -1,6 +1,6 @@
 import React from 'react';
-import { Book, Chapter, ThemeMode } from '../types';
-import { BookOpen, FileText, Upload, Trash2, Library as LibraryIcon, Menu, FolderUp, FileUp } from 'lucide-react';
+import { Book, ThemeMode } from '../types';
+import { BookOpen, Trash2, Library as LibraryIcon, Menu, FolderUp, FileUp } from 'lucide-react';
 
 interface LibraryProps {
   books: Book[];
