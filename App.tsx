@@ -26,12 +26,18 @@ function App() {
         if (res.ok) {
           const manifest = await res.json();
           
-          const remotePromises = manifest.map(async (item: { title: string, file: string }) => {
+          const remotePromises = manifest.map(async (item: { title: string, file: string, visibleChapters?: number }) => {
              try {
                const textRes = await fetch(`/novels/${encodeURIComponent(item.file)}`);
                if (!textRes.ok) throw new Error("File not found");
                const text = await textRes.text();
-               const chapters = parseNovelContent(text);
+               let chapters = parseNovelContent(text);
+
+               // Apply chapter limit if specified in manifest
+               if (typeof item.visibleChapters === 'number' && item.visibleChapters > 0) {
+                 chapters = chapters.slice(0, item.visibleChapters);
+               }
+
                return {
                  id: `static-${item.file}`, // Unique ID for static files
                  title: item.title,
